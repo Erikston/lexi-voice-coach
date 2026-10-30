@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lexi: voice vocabulary coach</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F3F6FB;--surface:#FFFFFF;--ink:#14213D;--muted:#5A6786;--accent:#3D5AFE;--accent-ink:#FFFFFF;--ok:#14805A;--bad:#C2412D;--line:#D9E0EE;color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0F1530;--surface:#19213F;--ink:#EEF1FB;--muted:#A3AECB;--accent:#8EA2FF;--accent-ink:#0F1530;--ok:#4FD1A0;--bad:#FF8F7D;--line:#2C3760;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0F1530;--surface:#19213F;--ink:#EEF1FB;--muted:#A3AECB;--accent:#8EA2FF;--accent-ink:#0F1530;--ok:#4FD1A0;--bad:#FF8F7D;--line:#2C3760;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"DM Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5;min-height:100vh}
+main{max-width:560px;margin:0 auto;padding:20px 18px 40px}
+h1{font-family:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;font-weight:800;font-size:1.5rem;margin:0}
+.tag{color:var(--muted);margin:2px 0 18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:22px 20px}
+.stage{font-family:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;font-weight:800;font-size:clamp(2.2rem,11vw,3.4rem);line-height:1.05;letter-spacing:-.01em;margin:0;word-break:break-word}
+.pos{color:var(--muted);font-style:italic;margin:6px 0 0;min-height:1.5em}
+.meaning{font-size:1.08rem;margin:14px 0 0}
+.example{color:var(--muted);margin:8px 0 0;min-height:1.5em}
+.status{margin:18px 0 0;min-height:1.6em;font-weight:500}
+.status.ok{color:var(--ok)}.status.bad{color:var(--bad)}
+.mic-row{display:flex;align-items:center;gap:16px;margin:18px 0 6px}
+.mic{position:relative;width:72px;height:72px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer;display:grid;place-items:center;flex:none}
+.mic svg{width:30px;height:30px}
+.mic.on::after{content:"";position:absolute;inset:-8px;border-radius:50%;border:3px solid var(--accent);animation:ring 1.2s ease-out infinite}
+@keyframes ring{from{transform:scale(.85);opacity:.9}to{transform:scale(1.25);opacity:0}}
+.mic-hint{color:var(--muted);font-size:.95rem}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+button.b{font:inherit;font-weight:700;padding:11px 16px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+button.b.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+form{display:flex;gap:10px;margin-top:16px}
+input{flex:1;min-width:0;font:inherit;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.score{display:flex;justify-content:space-between;color:var(--muted);margin-top:16px;font-size:.95rem}
+@media (prefers-reduced-motion: reduce){.mic.on::after{animation:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Lexi</h1>
+  <p class="tag">A voice coach that teaches you new words and quizzes you out loud.</p>
+  <section class="card" aria-live="polite">
+    <p class="stage" id="stage">Ready?</p>
+    <p class="pos" id="pos"></p>
+    <p class="meaning" id="meaning">Tap “Teach me a word” and Lexi will say it, explain it, and use it in a sentence.</p>
+    <p class="example" id="example"></p>
+    <p class="status" id="status"></p>
+    <div class="mic-row">
+      <button class="mic" id="mic" aria-label="Speak your answer" title="Speak your answer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      </button>
+      <span class="mic-hint" id="hint">Tap the mic to answer in quiz mode.</span>
+    </div>
+    <form id="form" autocomplete="off">
+      <input id="typed" type="text" placeholder="Or type your answer" aria-label="Type your answer">
+      <button class="b" type="submit">Check</button>
+    </form>
+    <div class="row">
+      <button class="b primary" id="learn">Teach me a word</button>
+      <button class="b" id="quiz">Quiz me</button>
+      <button class="b" id="next">Next word</button>
+    </div>
+    <div class="score"><span id="score">0 correct</span><span id="streak">Streak 0</span></div>
+  </section>
+</main>
+<script>
+(function(){
+  var WORDS=[
+    {w:"ephemeral",p:"adjective",m:"lasting for a very short time",e:"The joy of the festival was ephemeral, gone by morning."},
+    {w:"candid",p:"adjective",m:"honest and direct, even when it is uncomfortable",e:"She gave me candid feedback on my presentation."},
+    {w:"resilient",p:"adjective",m:"able to recover quickly after difficulty",e:"A resilient team bounces back from every setback."},
+    {w:"meticulous",p:"adjective",m:"very careful about small details",e:"He is meticulous about checking every number in a report."},
+    {w:"pragmatic",p:"adjective",m:"focused on practical results rather than theory",e:"We took a pragmatic approach and shipped the simple fix first."},
+    {w:"ambiguous",p:"adjective",m:"open to more than one meaning",e:"The instructions were ambiguous, so I asked for clarity."},
+    {w:"mitigate",p:"verb",m:"to make something bad less severe",e:"Backups mitigate the risk of losing data."},
+    {w:"scrutinize",p:"verb",m:"to examine something very closely",e:"Auditors scrutinize every transaction."},
+    {w:"eloquent",p:"adjective",m:"able to speak or write clearly and persuasively",e:"Her eloquent speech moved the whole room."},
+    {w:"benevolent",p:"adjective",m:"kind and generous toward others",e:"A benevolent donor funded the scholarships."},
+    {w:"tenacious",p:"adjective",m:"holding on firmly and refusing to give up",e:"Her tenacious effort finally solved the bug."},
+    {w:"lucid",p:"adjective",m:"clear and easy to understand",e:"He gave a lucid explanation of a complex idea."}
+  ];
+  var $=function(id){return document.getElementById(id)};
+  var stage=$("stage"),pos=$("pos"),meaning=$("meaning"),example=$("example"),status=$("status"),mic=$("mic"),hint=$("hint");
+  var order=WORDS.map(function(_,i){return i}).sort(function(){return Math.random()-.5});
+  var idx=-1,mode="idle",answered=false,score=0,streak=0,token=0;
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  var synth=window.speechSynthesis;
+  if(!SR){hint.textContent="Voice input needs Chrome or Edge. You can still type your answers."}
+  function cur(){return WORDS[order[idx]]}
+  function say(msg,cls){status.textContent=msg;status.className="status "+(cls||"")}
+  function speak(text){
+    return new Promise(function(res){
+      if(!synth){res();return}
+      synth.cancel();
+      var u=new SpeechSynthesisUtterance(text);
+      var vs=synth.getVoices();
+      var v=vs.filter(function(x){return x.lang==="en-IN"})[0]||vs.filter(function(x){return /^en/.test(x.lang)})[0];
+      if(v){u.voice=v}
+      u.lang=v?v.lang:"en-US";u.rate=.95;
+      var done=false;function fin(){if(!done){done=true;res()}}
+      u.onend=fin;u.onerror=fin;setTimeout(fin,15000);
+      synth.speak(u);
+    });
+  }
+  function listen(){
+    return new Promise(function(res,rej){
+      var r=new SR();r.lang="en-IN";r.interimResults=false;r.maxAlternatives=3;
+      r.onresult=function(ev){var out=[];for(var i=0;i<ev.results[0].length;i++){out.push(ev.results[0][i].transcript)}res(out.join(" "))};
+      r.onerror=function(ev){rej(ev.error||"error")};
+      r.onend=function(){rej("no-speech")};
+      try{r.start()}catch(e){rej("error")}
+    });
+  }
+  function lev(a,b){
+    var m=[],i,j;
+    for(i=0;i<=a.length;i++){m[i]=[i]}
+    for(j=0;j<=b.length;j++){m[0][j]=j}
+    for(i=1;i<=a.length;i++){for(j=1;j<=b.length;j++){
+      m[i][j]=Math.min(m[i-1][j]+1,m[i][j-1]+1,m[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+    }}
+    return m[a.length][b.length];
+  }
+  function nextIndex(){idx=(idx+1)%order.length}
+  function scoreUI(){$("score").textContent=score+" correct";$("streak").textContent="Streak "+streak}
+  function showLearn(){
+    var c=cur();stage.textContent=c.w;pos.textContent=c.p;meaning.textContent="Meaning: "+c.m+".";example.textContent="Example: "+c.e;
+  }
+  function showQuiz(){
+    var c=cur();
+    stage.textContent=c.w.charAt(0)+" "+c.w.slice(1).replace(/./g,"_ ").trim();
+    pos.textContent=c.p+", "+c.w.length+" letters";
+    meaning.textContent="Which word means: "+c.m+"?";example.textContent="";
+  }
+  async function learn(){
+    var t=++token;mode="learn";answered=false;if(synth)synth.cancel();
+    nextIndex();showLearn();var c=cur();
+    say("Lexi is speaking…");
+    await speak(c.w+". "+c.p+". It means "+c.m+". For example: "+c.e);
+    if(t===token){say("Say it back, or tap “Quiz me” to test yourself.")}
+  }
+  async function quiz(){
+    var t=++token;mode="quiz";answered=false;if(synth)synth.cancel();
+    nextIndex();showQuiz();var c=cur();
+    say("Lexi is asking…");
+    await speak("Which word means: "+c.m+"?");
+    if(t!==token||answered)return;
+    await tryListen(t);
+  }
+  async function tryListen(t){
+    if(mode!=="quiz"||answered)return;
+    if(!SR){say("Voice input isn’t supported here. Type your answer below.");return}
+    if(synth)synth.cancel();
+    mic.classList.add("on");say("Listening… say your answer.");
+    try{
+      var text=await listen();
+      if(t===undefined||t===token){check(text)}
+    }catch(err){
+      if(err==="not-allowed"||err==="service-not-allowed"){say("Microphone is blocked. Allow mic access, or type your answer.","bad")}
+      else{say("I didn’t catch that. Tap the mic to try again, or type your answer.")}
+    }finally{mic.classList.remove("on")}
+  }
+  function check(raw){
+    if(mode!=="quiz"||answered)return;
+    var c=cur(),target=c.w;
+    var tokens=String(raw).toLowerCase().replace(/[^a-z\s]/g," ").split(/\s+/).filter(Boolean);
+    var ok=tokens.some(function(x){return x===target||(target.length>=6&&lev(x,target)<=1)});
+    answered=true;stage.textContent=target;pos.textContent=c.p;example.textContent="Example: "+c.e;
+    if(ok){score++;streak++;say("Correct! You said “"+raw.trim()+"”.","ok");speak("Yes, "+target+". "+c.e)}
+    else{streak=0;say("Not quite. You said “"+raw.trim()+"”. The word is "+target+".","bad");speak("Not quite. The word is "+target+". It means "+c.m)}
+    scoreUI();
+  }
+  $("learn").addEventListener("click",learn);
+  $("quiz").addEventListener("click",quiz);
+  $("next").addEventListener("click",function(){mode==="learn"?learn():quiz()});
+  mic.addEventListener("click",function(){
+    if(mode!=="quiz"){quiz()}else if(answered){quiz()}else{token++;tryListen(token)}
+  });
+  $("form").addEventListener("submit",function(e){
+    e.preventDefault();var v=$("typed").value.trim();$("typed").value="";
+    if(!v)return;
+    if(mode!=="quiz"){say("Tap “Quiz me” first, then type your answer.");return}
+    check(v);
+  });
+  if(synth&&synth.onvoiceschanged!==undefined){synth.onvoiceschanged=function(){}}
+})();
+</script>
+</body>
+</html>
